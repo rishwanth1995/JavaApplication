@@ -224,13 +224,19 @@ public class Students {
     public static void enrollCourse(int id){
         Random rand = new Random();
         int value = rand.nextInt(500)*1000;
+        String facultyCheck = "select f.Faculty_ID from Faculty f where f.Faculty_ID = ?;";
+        String adminCheck = "select a.Admin_ID from Admin a where a.Admin_ID = ?;";
+        String studentCheck = " select s.Student_ID from Student s inner join completed_Courses cc on s.Student_ID = cc.Student_ID where cc.Student_ID = ? group by s.Student_ID having AVG(cc.Score) > 25 ;";
+        //String costQueryMinus = "select Name as course_name, cost from courses where Name = ?";
         try{
             conn = ConnectionManager.getConnection();
         String courseQuery = "SELECT * FROM COURSES";
         Statement stmt = conn.createStatement();
         ResultSet rs = stmt.executeQuery(courseQuery);
+        System.out.println("Course Name     Cost");
         while(rs.next()){
-            System.out.println(rs.getString("Name"));
+            
+            System.out.println(rs.getString("Name") + "              " + rs.getDouble("cost"));
         }
         
         }catch(Exception e){
@@ -242,10 +248,10 @@ public class Students {
                 Logger.getLogger(Students.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        System.out.println("Enter the name of the course you want to search");
+        System.out.println("Enter the name of the course you want to enroll");
         Scanner scanner= new Scanner(System.in);
         String cName = scanner.next();
-        int Course_ID ;
+        int Course_ID = 0 ;
         double cost;
         try{
             conn = ConnectionManager.getConnection();
@@ -253,7 +259,34 @@ public class Students {
             stmt = conn.prepareStatement(course2Query);
             stmt.setString(1, cName);
             ResultSet rs1 = stmt.executeQuery();
-            if(rs1.next()){
+            stmt = conn.prepareStatement(facultyCheck);
+            stmt.setInt(1, id);
+            ResultSet rs2 = stmt.executeQuery();
+            stmt = conn.prepareStatement(adminCheck);
+            stmt.setInt(1, id);
+            ResultSet rs3 = stmt.executeQuery();
+            stmt = conn.prepareStatement(studentCheck);
+            stmt.setInt(1, id);
+            ResultSet rs4 = stmt.executeQuery();
+            if(rs1.next() && (rs2.next() || rs3.next() || rs4.next())){
+                
+                //stmt = conn.prepareStatement(costQueryMinus);
+                //stmt.setString(1, cName);
+                //ResultSet rs5 = stmt.executeQuery();
+                System.out.println("You have to awarded a discount of 50% and the new cost is");
+                //1DBTablePrinter.printResultSet(rs5);
+                double discounted_cost;
+                discounted_cost = rs1.getDouble("cost") / 2;
+                String queryCourseInsert = "INSERT INTO student_courses(Course_ID,Student_ID,Payment_Confirmation,Date_of_Payment,Enrollment,Amount_per_course) values(?,?,?,now(),1,?)";
+                stmt = conn.prepareStatement(queryCourseInsert);
+                stmt.setInt(1,rs1.getInt("Course_ID"));
+                stmt.setInt(2, id);
+                stmt.setInt(3, value);
+                stmt.setDouble(4, discounted_cost);
+                stmt.execute();
+                System.out.println("You have been successfully enrolled please note the transaction id " + value );
+            }
+            else if(rs1.next()){
                 Course_ID = rs1.getInt("Course_ID");
                 cost = rs1.getDouble("cost");
                 String queryInsert = "INSERT INTO student_courses(Course_ID,Student_ID,Payment_Confirmation,Date_of_Payment,Enrollment,Amount_per_course) values(?,?,?,now(),1,?)";
@@ -263,6 +296,7 @@ public class Students {
                 stmt.setInt(3, value);
                 stmt.setDouble(4, cost);
                 stmt.execute();
+                System.out.println("You have been successfully enrolled please note the transaction id " + value );
             }else{
                 System.out.println("Wrong course name, please enter again");
                 enrollCourse(id);
