@@ -57,12 +57,12 @@ public static void main(String args[])
                     
                 case 2:
                     System.out.println("Welcome Admin");
-                    //adminLogIn();
+                            Admin.adminLogIn();
                     break;
                     
                 case 3:
                     System.out.println("Welcome Professor X");
-//	facultyLogIn();
+	            Faculty.facultyLogIn();
                     break;
                     
                 case 4:

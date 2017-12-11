@@ -82,18 +82,18 @@ public class Students {
         
     //}
 
-    private static void studentHomePage(int id) {
+    public static void studentHomePage(int id) {
         //To change body of generated methods, choose Tools | Templates.
         Scanner scanner = new Scanner(System.in);
         int choice;
         while(true){
         System.out.println("Please enter the one of the numbers");
         System.out.println("1. Account History \n2.My Courses \n3.Search queries by professor \n4. Search course by name \n5.Enroll Course \n6.PlayList"+
-                "\n7.Forum Questions \n8.Course Material Status \n9.Go Back \n10.Exit");
+                "\n7.Forum Questions \n8.Course Material Status \n9.Search Course by rating \n10.Completed courses certificate \n11.Go back \n12.Exit");
         
         System.out.println("***********************************************************************************************************");
         choice = scanner.nextInt();
-        if(choice < 0 || choice > 8){
+        if(choice < 0 || choice > 11){
             System.out.println("Please enter a valid choice");
         }else{
             break;
@@ -153,14 +153,21 @@ public class Students {
                 break;
             
             }
-            /*
-            case 6:
+            
+            case 9:
             {
-                System.out.println("Course material status");
-                courseMaterialStatus(id);
+                System.out.println("searchByRatings");
+                searchCourseByRating(id);
                 break;
             }
-            case 7:
+            case 10:
+            {
+                System.out.println("Here is the list of all your completed courses and certificates");
+                showCertificate(id);
+                break;
+            }
+            
+            case 11:
             {
                 System.out.println("Redirecting to menu");
             try {
@@ -169,7 +176,7 @@ public class Students {
                 Logger.getLogger(Students.class.getName()).log(Level.SEVERE, null, ex);
             }
             }
-            case 8:
+            case 12:
             {
                 System.out.println("Exit");
                 System.exit(0);
@@ -182,7 +189,7 @@ public class Students {
             }
              
             
-         */   
+            
         }
             scanner.close();
     }
@@ -190,15 +197,15 @@ public class Students {
     public static void accountHistory(int id){
         try{
             conn = ConnectionManager.getConnection();
-            String queryAccountHistory = "SELECT c.Course_ID AS Course_Id, c.Description AS Course_Description, c.Name AS Courses_Name,c.cost AS Course_Cost,sc.Date_of_Payment AS Course_Started_On, " +
+            String queryAccountHistory = "SELECT c.Course_ID AS Course_Id, c.Description AS Course_Description, c.Name AS Course_Name,c.cost AS Course_Cost,sc.Date_of_Payment AS Course_Started_On, " +
                  "cc.Score AS Marks_Obtained ,cc.Date_of_Completion AS Date_Of_Completion FROM (courses c INNER JOIN student_courses sc ON c.Course_ID = sc.Course_ID )  INNER JOIN completed_courses cc " +
                         "ON sc.Course_ID = cc.Course_ID WHERE sc.Student_ID = ? GROUP BY c.Course_ID;"; 
                                 stmt = conn.prepareStatement(queryAccountHistory);
                                 stmt.setInt(1, id);
                                 ResultSet rs = stmt.executeQuery();
                                 while(rs.next()){
-                                    System.out.println(rs.getInt("Course_ID" + " | " + rs.getString("Course_Description") + " | " + rs.getString("Course_Name") + " | " + rs.getDouble("Course_Cost") + " | "
-                                     + rs.getString("Course_Started_On")));
+                                    System.out.println(rs.getInt("Course_ID") + " | " + rs.getString("Course_Description") + " | " + rs.getString("Course_Name") + " | " + rs.getDouble("Course_Cost") + " | "
+                                     + rs.getString("Course_Started_On"));
                                 }
                                String total = "SELECT SUM(c.Cost) AS Total_Amount FROM courses c INNER JOIN student_courses sc ON c.Course_ID=sc.Course_ID " +
                                        "WHERE sc.Student_ID = ?";
@@ -397,9 +404,9 @@ public class Students {
         String subjectOfInterestQuery = "SELECT c.Course_ID AS Course_ID, c.Name AS Course_Name," +
         "c.Primary_Topic as Primary_Topic,sc.Secondary_topic as Secondary_Topics FROM (courses c INNER JOIN subject_of_interest soi ON c.Course_ID = soi.Course_ID) " +
                "INNER JOIN secondary_topics sc ON soi.Course_ID = sc.Course_ID WHERE soi.Student_ID = ? GROUP BY sc.Secondary_topic ORDER BY c.Name;"; 
-        String enrolledQuery = "SELECT c.Course_ID, c.Name, c.Primary_Topic, st.Secondary_topic from courses c inner join (SELECT * FROM student_courses sc where sc.Course_ID not in (select cc.Course_ID from completed_courses cc)) q on c.Course_ID = q.Course_ID inner join secondary_topics st on q.Course_ID = st.Course_ID where q.Student_ID = ? GROUP BY c.Course_ID order by c.Name;";
+        String enrolledQuery = "SELECT c.Course_ID, c.Name, c.Primary_Topic, st.Secondary_topic,q.Date_of_Payment as Date_of_enrollment from courses c inner join (SELECT * FROM student_courses sc where sc.Course_ID not in (select cc.Course_ID from completed_courses cc)) q on c.Course_ID = q.Course_ID inner join secondary_topics st on q.Course_ID = st.Course_ID where q.Student_ID = ? GROUP BY c.Course_ID order by c.Name;";
         
-        String completedQuery = "select c.Course_ID,c.Name,c.Primary_Topic,AVG(cc.Rating), st.secondary_topic from courses c inner join secondary_topics st on c.course_ID = st.Course_ID inner join completed_courses cc on st.Course_ID = cc.Course_ID where cc.Student_ID = ? group by st.secondary_topic order by AVG(cc.Rating);";
+        String completedQuery = "select c.Course_ID,c.Name,c.Primary_Topic,AVG(cc.Rating), st.secondary_topic, sc.Date_of_Payment as Date_of_Enrollemnt,cc.Date_of_Completion as Completion_Date from courses c inner join secondary_topics st on c.course_ID = st.Course_ID inner join completed_courses cc on st.Course_ID = cc.Course_ID inner join student_courses sc on cc.Course_ID = sc.Course_ID and cc.Student_ID = sc.Student_ID where cc.Student_ID = ? group by st.secondary_topic order by AVG(cc.Rating);";
         
         try{
             conn = ConnectionManager.getConnection();
@@ -1051,6 +1058,81 @@ public class Students {
             courseMaterial(id);
         }
         scanner.close();
+    }
+    
+    public static void searchCourseByRating(int id){
+        String query = "SELECT c.Name,c.Course_ID,c.Cost,ROUND(AVG(cc.Rating),-1) as rating from courses c inner join completed_courses cc on c.Course_ID = cc.Course_ID group by c.Course_ID having avg(cc.Rating) >= ?";
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Please enter the rating");
+        int double1 = scanner.nextInt();
+        
+        try{
+            conn = ConnectionManager.getConnection();
+            stmt = conn.prepareStatement(query);
+            stmt.setInt(1,double1);
+            ResultSet rs =stmt.executeQuery();
+            DBTablePrinter.printResultSet(rs);
+            
+        }catch(SQLException e){
+            System.out.println(e);
+        }finally{
+            try {
+                conn.close();
+            } catch (SQLException ex) {
+                Logger.getLogger(Students.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        System.out.println("Press 1 to Go back\nPress 2 to make another search");
+        int choice = scanner.nextInt();
+        if(choice == 1){
+            Students.studentHomePage(id);
+        }else{
+            Students.searchCourseByRating(id);
+        }
+        
+        scanner.close();
+        
+    }
+
+    private static void showCertificate(int id) {
+        String query = "SELECT c.Name,c.Course_ID, cc.Certificate, cc.Score from courses c inner join completed_courses cc on c.Course_ID = cc.Course_ID where cc.Student_ID = ? group by cc.Course_ID";
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Please enter the course_id for the course which you want a certificate");
+        
+        String query2 = "SELECT cc.Certificate from completed_courses cc where cc.Student_ID = ? and cc.Course_ID = ?";
+        
+        try{
+            conn = ConnectionManager.getConnection();
+            stmt = conn.prepareStatement(query);
+            stmt.setInt(1,id);
+            ResultSet rs =stmt.executeQuery();
+            DBTablePrinter.printResultSet(rs);
+            stmt = conn.prepareStatement(query2);
+            stmt.setInt(1, id);
+            int double1 = scanner.nextInt();
+            stmt.setInt(2, double1);
+            
+            ResultSet rs1 = stmt.executeQuery();
+            DBTablePrinter.printResultSet(rs1);
+        }catch(SQLException e){
+            System.out.println(e);
+        }finally{
+            try {
+                conn.close();
+            } catch (SQLException ex) {
+                Logger.getLogger(Students.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        System.out.println("Press 1 to Go back\nPress 2 to print another certificate");
+        int choice = scanner.nextInt();
+        if(choice == 1){
+            Students.studentHomePage(id);
+        }else{
+            Students.showCertificate(id);
+        }
+        
+        scanner.close();
+        
     }
     
     
